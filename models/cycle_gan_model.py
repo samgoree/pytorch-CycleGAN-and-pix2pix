@@ -54,8 +54,21 @@ class CycleGANModel(BaseModel):
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
         self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B']
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
-        visual_names_A = ['real_A', 'fake_B', 'rec_A']
-        visual_names_B = ['real_B', 'fake_A', 'rec_B']
+        if self.opt.n_iter == 1:
+            visual_names_A = ['real_A', 'fake_B', 'rec_A']
+            visual_names_B = ['real_B', 'fake_A', 'rec_B']
+        else:
+            visual_names_A = ['real_A'] + [[
+                    'fake_Bs_{}'.format(i) for i in range(0, self.opt.n_iter//self.opt.viz_every)
+                ]] + [[
+                    'rec_As_{}'.format(i) for i in range(0, self.opt.n_iter//self.opt.viz_every)
+                ]]
+            visual_names_B = ['real_B'] + [[
+                    'fake_As_{}'.format(i) for i in range(0, self.opt.n_iter//self.opt.viz_every)
+                ]] + [[
+                    'rec_Bs_{}'.format(i) for i in range(0, self.opt.n_iter//self.opt.viz_every)
+                ]]
+            
         if self.isTrain and self.opt.lambda_identity > 0.0:  # if identity loss is used, we also visualize idt_B=G_A(B) ad idt_A=G_A(B)
             visual_names_A.append('idt_B')
             visual_names_B.append('idt_A')
@@ -111,10 +124,37 @@ class CycleGANModel(BaseModel):
 
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
-        self.fake_B = self.netG_A(self.real_A)  # G_A(A)
-        self.rec_A = self.netG_B(self.fake_B)   # G_B(G_A(A))
-        self.fake_A = self.netG_B(self.real_B)  # G_B(B)
-        self.rec_B = self.netG_A(self.fake_A)   # G_A(G_B(B))
+        if not self.opt.isTrain and self.opt.n_iter > 1:
+            self.fake_Bs = []
+            self.rec_As = []
+            self.fake_As = []
+            self.rec_Bs = []
+            self.fake_Bs.append(self.netG_A(self.real_A))  # G_A(A)
+            self.rec_As.append(self.netG_B(self.fake_Bs[-1]))   # G_B(G_A(A))
+            self.fake_As.append(self.netG_B(self.real_B))  # G_B(B)
+            self.rec_Bs.append(self.netG_A(self.fake_As[-1]))   # G_A(G_B(B))
+
+            fake_B = self.netG_A(self.real_A)
+            rec_A = self.netG_B(fake_B)
+            fake_A = self.netG_B(self.real_B)
+            rec_B = self.netG_A(fake_A)
+
+            for i in range(self.opt.n_iter - 1):
+                fake_B = self.netG_A(rec_A)
+                rec_A = self.netG_B(fake_B)
+                fake_A = self.netG_B(rec_B)
+                rec_B = self.netG_A(fake_A)
+                if i % self.opt.viz_every == 0:
+                    print(i, '/', self.opt.n_iter)
+                    self.fake_Bs.append(fake_B.clone().cpu())
+                    self.rec_As.append(rec_A.clone().cpu())
+                    self.fake_As.append(fake_A.clone().cpu())
+                    self.rec_Bs.append(rec_B.clone())
+        else:
+            self.fake_B = self.netG_A(self.real_A)  # G_A(A)
+            self.rec_A = self.netG_B(self.fake_B)   # G_B(G_A(A))
+            self.fake_A = self.netG_B(self.real_B)  # G_B(B)
+            self.rec_B = self.netG_A(self.fake_A)   # G_A(G_B(B))
 
     def backward_D_basic(self, netD, real, fake):
         """Calculate GAN loss for the discriminator

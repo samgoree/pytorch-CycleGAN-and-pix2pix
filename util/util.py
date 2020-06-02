@@ -63,6 +63,24 @@ def save_image(image_numpy, image_path, aspect_ratio=1.0):
         image_pil = image_pil.resize((int(h / aspect_ratio), w), Image.BICUBIC)
     image_pil.save(image_path)
 
+def save_gif(images_numpy, image_path, aspect_ratio=1.0):
+    images_pil = []
+    for i in range(len(images_numpy)):
+        image_pil = Image.fromarray(images_numpy[i])
+        h, w, _ = images_numpy[i].shape
+
+        if aspect_ratio > 1.0:
+            image_pil = image_pil.resize((h, int(w * aspect_ratio)), Image.BICUBIC)
+        if aspect_ratio < 1.0:
+            image_pil = image_pil.resize((int(h / aspect_ratio), w), Image.BICUBIC)
+        images_pil.append(image_pil)
+
+    images_pil[0].save(image_path,
+               save_all=True, append_images=images_pil[1:], optimize=False, duration=[1000, 1000, 1000, 1000, 500, 500] + [100 for i in range(len(images_pil)-7)] + [5000], loop=0)
+    image_path_no_ext = '.'.join(image_path.split('.')[:-1])
+    images_pil[0].save(image_path_no_ext + '_first.png')
+    images_pil[-1].save(image_path_no_ext + '_last.png')
+
 
 def print_numpy(x, val=True, shp=False):
     """Print the mean, min, max, median, std, and size of a numpy array

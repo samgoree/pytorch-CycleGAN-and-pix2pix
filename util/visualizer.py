@@ -33,10 +33,16 @@ def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=256):
     ims, txts, links = [], [], []
 
     for label, im_data in visuals.items():
-        im = util.tensor2im(im_data)
-        image_name = '%s_%s.png' % (name, label)
-        save_path = os.path.join(image_dir, image_name)
-        util.save_image(im, save_path, aspect_ratio=aspect_ratio)
+        if type(im_data) == list:
+            im_list = [util.tensor2im(im_data[i]) for i in range(len(im_data))]
+            image_name = '%s_%s.gif' % (name, label)
+            save_path = os.path.join(image_dir, image_name)
+            util.save_gif(im_list, save_path, aspect_ratio=aspect_ratio)
+        else:
+            im = util.tensor2im(im_data)
+            image_name = '%s_%s.png' % (name, label)
+            save_path = os.path.join(image_dir, image_name)
+            util.save_image(im, save_path, aspect_ratio=aspect_ratio)
         ims.append(image_name)
         txts.append(label)
         links.append(image_name)

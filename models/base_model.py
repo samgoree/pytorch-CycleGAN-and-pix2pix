@@ -130,6 +130,13 @@ class BaseModel(ABC):
         for name in self.visual_names:
             if isinstance(name, str):
                 visual_ret[name] = getattr(self, name)
+            elif isinstance(name, list):
+                ims = []
+                for i in range(len(name)):
+                    var_name = '_'.join(name[i].split('_')[:-1])
+                    ind = int(name[i].split('_')[-1])
+                    ims.append(getattr(self, var_name)[i])
+                visual_ret[var_name] = ims
         return visual_ret
 
     def get_current_losses(self):
